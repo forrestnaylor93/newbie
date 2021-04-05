@@ -7,29 +7,37 @@ class Coordinate_Plane{
 
         ////////////////////////////////////////////////////
         // properties
-        this.x = 100;
-        this.x1 = 800;
-        this.y = 100;
-        this.y1 = 800;
+        this.x = 100; // leftmost point of graph
+        this.x1 = 800; // rightmost point of graph
+        this.y = 100; // highest point of graph
+        this.y1 = 800; // lowest point of graph
+
+
+
+        // step is determined by:
+        // (1) the quanity represented by each major gridline (unit) - subdivided into the number and it's order of magnitude
+        // (2) px, the number of px between each gridline
 
         this.step = {
-            x:{unit: {number: 10, e:0}, px: 100},
+            x:{unit: {number: 10, e:0}, px: 100}, 
             y:{unit: {number:10, e:0}, px: 100}
         }
 
-        this.width = this.x1 - this.x;
-        this.height = this.y1 - this.y;
+        this.width = this.x1 - this.x; // width of the coord plane
+        this.height = this.y1 - this.y; // height of the coord plane
 
 
-        // measurments
+        // measurments - gives the max and min units visible within coord plane boundaries -> calculate by function calc_m
         this.m = {
-            x:{max:0, min: 0},
+            x:{max:0, min: 0}, 
             y:{max:0, min:0}
         }
 
         ///////////////////////////////////////////////////
         // appearance
 
+
+        // this is a color palette designed to make it easy to change the look of the plane without having to use color codes outside of this object
         this.palette = {
             white: '#eee',
             dark_gray: '#333',
@@ -39,6 +47,7 @@ class Coordinate_Plane{
             white_faded: 'rgba(255,255,255,.4)'
         } 
 
+        // this is where various color palletes are assigned to the actually objects in the plane
         // colors
         this.colors = {
             border: this.palette.white,
@@ -47,11 +56,11 @@ class Coordinate_Plane{
             grid: this.palette.white_faded
         }
 
-        // linewidths
+        // default sizes of various objects
         this.sizes = {
             border: 7, // width of border in px
             point: 10,  // radius of point in px
-            origin: 15,
+            origin: 15, // radius of origin in px
             grid: 2, // pixels
         }
 
@@ -61,19 +70,28 @@ class Coordinate_Plane{
         ///////////////////////////////////////////////////
         // objects
 
+        // all coordinates and gridlines are based off of the origin and it's offset. Default of offset is 0 to start origin in the center
         this.origin = new Origin(this.sizes.origin, this.colors.origin)
-        this.origin.offset.x.px = -130;
+        this.origin.offset.x.px = -130; // origin x offset in px (push origin to right: + positive values, to left: - negative values)
+        this.origin.offset.y.px = -100; // origin y offset in px (push origin down: + positive values, up: - negative values)
 
+        
+        // grid is made up of special object called Gridline. Gridlines can be major or minor, vertical or horizontal.
         this.grid = {
             vertical:[],
             horizontal:[]
         }
 
+        // points to be displayed on canvas
         this.points = [];
+
+        // points that have been clicked to be selected for creating lines and polygons
         this.selected_points = [];
 
+        // records which objects have been created allowing users to delete most recently created objects with ctrl-z if desired
         this.objects_receipts = [];
 
+        // calculates the min and max units for the plane based off of the given step, the width and height of the plane, and the origin location
         this.calc_m();
 
         
@@ -82,16 +100,11 @@ class Coordinate_Plane{
         
        
         //this.new_gridline(0,'horizontal');
-        this.new_grid();
-        this.new_point(5,5);
-        this.draw();
+        this.new_grid(); // creates grid for new plane
+        this.new_point(5,5); // test point
+        this.draw(); // test drawing
 
         //console.log(this.grid.horizontal[0])
-        console.log(this.m)
-        console.log(this.grid)
-
-        this.grid.horizontal[4].unit_value = 5;
-        this.grid.horizontal[4].color = this.colors.grid;
 
        
 
@@ -100,15 +113,22 @@ class Coordinate_Plane{
     // drawing functions
 
     draw = ()=>{
-        this.grid.vertical.forEach((gridline)=>{
-            this.draw_gridline(gridline);
-        })
-        this.grid.horizontal.forEach((gridline)=>{
-            this.draw_gridline(gridline);
-        })
-        //this.draw_gridline();
+
+        // drawing gridlines
+            this.grid.vertical.forEach((gridline)=>{
+                this.draw_gridline(gridline);
+            })
+            this.grid.horizontal.forEach((gridline)=>{
+                this.draw_gridline(gridline);
+            })
+
+        // drawing border
         this.draw_border();
+
+        // drawing origin
         this.draw_point(this.origin);
+
+        // drawing other points
         this.points.forEach((point)=>{
             this.draw_point(point);
         })
@@ -180,25 +200,28 @@ class Coordinate_Plane{
     calculate = ()=>{
     }
 
+
+        // converts horizontal units to pixel position (necessary to tell canvas where objects should be placed visually)
         convert_unitX_to_px = (unit)=>{
-            let center_px = this.x + this.width/2;
-            let offset_px = this.origin.offset.x.px;
-            let x_pos_px = center_px + offset_px + unit*this.step.x.px/Number(this.step.x.unit.number + "e" + this.step.x.unit.e);
+            let center_px = this.x + this.width/2;  // find center of plane in pixels
+            let offset_px = this.origin.offset.x.px; // determine offset from origin in pixels
+            let x_pos_px = center_px + offset_px + unit*this.step.x.px/Number(this.step.x.unit.number + "e" + this.step.x.unit.e); // calcuate unit position in pixels
 
             return x_pos_px;
 
         }
 
+        // converts vertical units to pixel position (necessary to tell canvas where objects should be placed visually)
         convert_unitY_to_px = (unit)=>{
-            let center_px = this.y + this.height/2;
-            let offset_px = this.origin.offset.y.px;
-            let y_pos_px = center_px + offset_px - unit*this.step.y.px/Number(this.step.y.unit.number +"e"+this.step.y.unit.e);
-            //let x_pos_px = center_px + offset_px + unit*this.step.x.px/Number(this.step.x.unit.number + "e" + this.step.x.unit.e);
-            
+            let center_px = this.y + this.height/2;  // find center of plane in pixels
+            let offset_px = this.origin.offset.y.px; // determine offset from origin in pixels
+            let y_pos_px = center_px + offset_px - unit*this.step.y.px/Number(this.step.y.unit.number +"e"+this.step.y.unit.e); // calcuate unit position in pixels            
 
             return y_pos_px;
         }
 
+
+        // converts horizontal pixel position to units => useful for interactive creations of objects which rely on event.clientX and event.clientY
         convert_pxX_to_unit = (px)=>{
             let center_px = this.x + this.width/2;
             let offset_px = this.origin.offset.x.px;
@@ -211,6 +234,7 @@ class Coordinate_Plane{
 
         }
 
+        // converts vertical pixel position to units => useful for interactive creations of objects which rely on event.clientX and event.clientY
         convert_pxY_to_unit = (px)=>{
             let center_px = this.y + this.height/2;
             let offset_px = this.origin.offset.y.px;
@@ -225,6 +249,7 @@ class Coordinate_Plane{
 
        
 
+        // calculates the min and max units for the plane based off of the given step, the width and height of the plane, and the origin location
         calc_m = ()=>{
           this.m.x.max = this.convert_pxX_to_unit(this.x1);
           this.m.x.min = this.convert_pxX_to_unit(this.x);
@@ -233,17 +258,21 @@ class Coordinate_Plane{
           this.m.y.min = this.convert_pxY_to_unit(this.y1);
         }
 
+        // calculates unit value of step in px
         calc_unit_value_x = ()=>{
             let unit_x_value = this.calc_value(this.step.x.unit.number, this.step.x.unit.e)
             return unit_x_value;
         }
 
+        // calculates unit value of step in px
         calc_unit_value_y = ()=>{
             let unit_y_value = this.calc_value(this.step.y.unit.number, this.step.y.unit.e)
             return unit_y_value;
         }
-    
 
+
+        // calculates value of object with number and e => i.e. {number: 4, e: 5} => "4e5" => Number("4e5") => 4*10^5
+        // A little awkward but necessary for double float decimal percision.
             calc_value = (number, e) =>{
                 let value = Number(number + "e" + e );
                 return value;
@@ -254,17 +283,15 @@ class Coordinate_Plane{
 
     new_point = (x= 0, y = 0, color = 'red', size = 10)=>{
         let point = new Point(x, y);
-        point.color = this.colors.point;
-        point.size = this.sizes.point;
-        this.points.push(point);
-        this.objects_receipts.push('point');
+        point.color = this.colors.point; // color of point
+        point.size = this.sizes.point; // radius of point in px
+        this.points.push(point); // pushes point to planes points array
+        this.objects_receipts.push('point'); // records point object as having been created
     }
 
-    new_grid = (step = this.step)=>{
-        let x_max = this.m.x.max;
-        let x_min = this.m.x.min;
-        let y_max = this.m.y.max;
-        let y_min = this.m.y.min;
+
+    // create gridlines using the step of the plane as well as m (measurments of min and max unit values)
+    new_grid = ()=>{
 
         // vertical lines
             // positive and zero
@@ -288,6 +315,8 @@ class Coordinate_Plane{
             }
     }
 
+
+        // create a new gridline -> used in function new_grid()
         new_gridline = (unit_position = 0, orientation = null, color = this.colors.grid, lineWidth = this.sizes.grid)=>{
             let gridline = new Gridline(unit_position, orientation, color);
             //gridline.color = color;
