@@ -19,8 +19,8 @@ class Coordinate_Plane{
         // (2) px, the number of px between each gridline
 
         this.step = {
-            x:{unit: {number: 10, e:0}, px: 100}, 
-            y:{unit: {number:10, e:0}, px: 100}
+            x:{unit: {number: 1, e:2}, px: 200}, 
+            y:{unit: {number:1, e:2}, px: 200}
         }
 
         this.width = this.x1 - this.x; // width of the coord plane
@@ -43,6 +43,7 @@ class Coordinate_Plane{
             dark_gray: '#333',
             sky: 'rgb(50, 220, 250)',
             orange: 'rgb(220,150,50)',
+            yellow: 'yellow',
 
             white_faded: 'rgba(255,255,255,.4)'
         } 
@@ -53,7 +54,10 @@ class Coordinate_Plane{
             border: this.palette.white,
             point: this.palette.sky,
             origin: this.palette.orange,
-            grid: this.palette.white_faded
+            grid: this.palette.white_faded,
+            x_axis: this.palette.yellow,
+            y_axis: this.palette.yellow,
+            grid_numbers: this.palette.white_faded
         }
 
         // default sizes of various objects
@@ -62,7 +66,13 @@ class Coordinate_Plane{
             point: 10,  // radius of point in px
             origin: 15, // radius of origin in px
             grid: 2, // pixels
+            grid_numbers: 30, // grid_numbers_font_size
         }
+
+        // font
+        this.font_family = 'Arial'; // font family
+        this.font_size = 30 // font_Size in px
+        this.ctx.font = this.font_size.toString()+ "px " + this.font_family;
 
         // sizes
         
@@ -75,7 +85,8 @@ class Coordinate_Plane{
         this.origin.offset.x.px = -130; // origin x offset in px (push origin to right: + positive values, to left: - negative values)
         this.origin.offset.y.px = -100; // origin y offset in px (push origin down: + positive values, up: - negative values)
 
-        
+        this.x_axis = new Axis('x', this.colors.x_axis);
+        this.y_axis = new Axis('y', this.colors.y_axis)
         // grid is made up of special object called Gridline. Gridlines can be major or minor, vertical or horizontal.
         this.grid = {
             vertical:[],
@@ -101,8 +112,11 @@ class Coordinate_Plane{
        
         //this.new_gridline(0,'horizontal');
         this.new_grid(); // creates grid for new plane
-        this.new_point(5,5); // test point
+       // this.new_point(5,5); // test point
+        
+        
         this.draw(); // test drawing
+        //this.draw_numbers_on_x_axis();
 
         //console.log(this.grid.horizontal[0])
 
@@ -121,6 +135,10 @@ class Coordinate_Plane{
             this.grid.horizontal.forEach((gridline)=>{
                 this.draw_gridline(gridline);
             })
+
+        // drawing axes
+        this.draw_gridline(this.x_axis)
+        this.draw_gridline(this.y_axis)
 
         // drawing border
         this.draw_border();
@@ -155,9 +173,11 @@ class Coordinate_Plane{
             //console.log(gridline.unit_value)
             if(gridline.orientation == 'vertical'){
                 this.draw_vertical_gridline(gridline);
+                
             }
             else if(gridline.orientation == 'horizontal'){
                 this.draw_horizontal_gridine(gridline);
+               
             }
             
 
@@ -176,6 +196,8 @@ class Coordinate_Plane{
                 this.ctx.lineTo(x_px, y1_px);
                 this.ctx.stroke();
                 this.ctx.globalAlpha = 1;
+
+               if(gridline.number_visible){this.draw_numbers_on_x_axis(gridline.unit_value) } // draw a number if it is visible for gridline
             }
 
             draw_horizontal_gridine = (gridline)=>{
@@ -193,12 +215,51 @@ class Coordinate_Plane{
                 this.ctx.lineTo(x1_px, y_px);
                 this.ctx.stroke();
                 this.ctx.globalAlpha = 1;
+
+                if(gridline.number_visible){this.draw_numbers_on_y_axis(gridline.unit_value) } // draw a number if it is visible for gridline
+
+            }
+
+            // numbers on_x_axis go with Gridlines in this.grid.vertical[]
+            draw_numbers_on_x_axis = (number = 1)=>{
+                if(number == 0){return} // exclude zero
+                this.change_font();
+                this.ctx.fillStyle = this.colors.grid_numbers;
+
+                let number_string = Math.abs(number.toString());
+                let minus_width = this.ctx.measureText('-').width;
+                let number_width = this.ctx.measureText(number_string).width;
+
+                let x_pos_px = this.convert_unitX_to_px(number) - number_width/2 ;
+                if(number < 0){x_pos_px -= minus_width};
+                let y_pos_px = this.convert_unitY_to_px(0) + this.font_size*1.2;
+
+                this.ctx.clearRect(x_pos_px, y_pos_px - this.font_size*0.80, number_width, this.font_size);
+                this.ctx.fillText(number, x_pos_px, y_pos_px)
+            }
+
+            draw_numbers_on_y_axis = (number = 1)=>{
+                if(number == 0){return} // exclude zero
+                this.change_font();
+                this.ctx.fillStyle = this.colors.grid_numbers;
+
+                let number_string = number.toString();
+                let number_width = this.ctx.measureText(number_string).width;
+
+                let x_pos_px = this.convert_unitX_to_px(0) - number_width - this.font_size*0.4 ;
+                let y_pos_px = this.convert_unitY_to_px(number) + this.font_size*0.3;
+
+                this.ctx.clearRect(x_pos_px, y_pos_px - this.font_size*0.80, number_width, this.font_size);
+                this.ctx.fillText(number, x_pos_px, y_pos_px)
             }
 
 
     // calculate measurements
     calculate = ()=>{
     }
+        change_font = (size = this.font_size, font_family = this.font_family)=>{
+            this.ctx.font = size.toString()+"px " + font_family;
+        }
 
 
         // converts horizontal units to pixel position (necessary to tell canvas where objects should be placed visually)
@@ -386,6 +447,7 @@ class Gridline extends Line{
         this.unit_value = unit_value;
         this.orientation = orientation;
         this.transparency = 1;
+        this.number_visible = true;
 
         // appearance
         this.is_major = false;
@@ -397,6 +459,28 @@ class Gridline extends Line{
        
 
 
+    }
+}
+
+class Axis extends Gridline{
+    constructor(type, color = 'red'){
+        super(0, 'null' , color);
+        this.type = type;
+        
+        if(type == 'x'){
+            this.orientation = 'horizontal'
+        }
+        else if(type == 'y'){
+            this.orientation = 'vertical'
+        }
+
+        
+
+        // axis specific qualities
+        this.numbers_visible = true;
+        this.arrow_heads_visible = false;
+        this.lineWidth = 5;
+        
     }
 }
 
