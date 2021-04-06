@@ -8,7 +8,7 @@ class Coordinate_Plane{
         ////////////////////////////////////////////////////
         // properties
         this.x = 100; // leftmost point of graph
-        this.x1 = 800; // rightmost point of graph
+        this.x1 = 1000; // rightmost point of graph
         this.y = 100; // highest point of graph
         this.y1 = 800; // lowest point of graph
 
@@ -82,8 +82,8 @@ class Coordinate_Plane{
 
         // all coordinates and gridlines are based off of the origin and it's offset. Default of offset is 0 to start origin in the center
         this.origin = new Origin(this.sizes.origin, this.colors.origin)
-        this.origin.offset.x.px = -130; // origin x offset in px (push origin to right: + positive values, to left: - negative values)
-        this.origin.offset.y.px = -100; // origin y offset in px (push origin down: + positive values, up: - negative values)
+        this.origin.offset.x.px = +180; // origin x offset in px (push origin to right: + positive values, to left: - negative values)
+        this.origin.offset.y.px = +100; // origin y offset in px (push origin down: + positive values, up: - negative values)
 
         this.x_axis = new Axis('x', this.colors.x_axis);
         this.y_axis = new Axis('y', this.colors.y_axis)
@@ -104,6 +104,15 @@ class Coordinate_Plane{
 
         // calculates the min and max units for the plane based off of the given step, the width and height of the plane, and the origin location
         this.calc_m();
+
+
+        /// interacitivy
+        this.mousedown = [];
+        this.mouesup = [];
+        this.keydown = [];
+        this.keyup = [];
+        this.mousemove = [];
+        this.event_listeners = []
 
         
         
@@ -159,6 +168,11 @@ class Coordinate_Plane{
         }
 
         draw_point = (point)=>{
+            
+            if(
+                point.x < this.m.x.min || point.x > this.m.x.max ||
+                point.y > this.m.y.max || point.y < this.m.y.min
+                ){return}
 
             let x_pos_px = this.convert_unitX_to_px(point.x);
             let y_pos_px = this.convert_unitY_to_px(point.y);
@@ -172,11 +186,17 @@ class Coordinate_Plane{
         draw_gridline = (gridline)=>{
             //console.log(gridline.unit_value)
             if(gridline.orientation == 'vertical'){
-                this.draw_vertical_gridline(gridline);
+                if(gridline.unit_value < this.m.x.max && gridline.unit_value > this.m.x.min ){
+                    this.draw_vertical_gridline(gridline);
+                }
+                
                 
             }
             else if(gridline.orientation == 'horizontal'){
-                this.draw_horizontal_gridine(gridline);
+                
+                if(gridline.unit_value < this.m.y.max && gridline.unit_value > this.m.y.min ){
+                    this.draw_horizontal_gridine(gridline); 
+                }
                
             }
             
@@ -201,7 +221,7 @@ class Coordinate_Plane{
             }
 
             draw_horizontal_gridine = (gridline)=>{
-                console.log('drawing horizontal')
+                //console.log('drawing horizontal')
                 let y_unit = gridline.unit_value;
                 let y_px = this.convert_unitY_to_px(y_unit);
                 let x_px = this.x;
@@ -222,7 +242,10 @@ class Coordinate_Plane{
 
             // numbers on_x_axis go with Gridlines in this.grid.vertical[]
             draw_numbers_on_x_axis = (number = 1)=>{
-                if(number == 0){return} // exclude zero
+                
+
+                let numbers_off_grid = false;
+
                 this.change_font();
                 this.ctx.fillStyle = this.colors.grid_numbers;
 
@@ -234,23 +257,70 @@ class Coordinate_Plane{
                 if(number < 0){x_pos_px -= minus_width};
                 let y_pos_px = this.convert_unitY_to_px(0) + this.font_size*1.2;
 
-                this.ctx.clearRect(x_pos_px, y_pos_px - this.font_size*0.80, number_width, this.font_size);
-                this.ctx.fillText(number, x_pos_px, y_pos_px)
+                  // keep on numbers top margin if origin is above plane's field of view
+                  if(y_pos_px < this.convert_unitY_to_px(this.m.y.max) - this.font_size*0.2 - this.sizes.border){
+                    y_pos_px = this.convert_unitY_to_px(this.m.y.max) - this.font_size*0.2 - this.sizes.border;
+                    numbers_off_grid = true;
+                }
+
+                 // keep on numbers bottom margin if origin is under plane's field of view
+                 if(y_pos_px > this.convert_unitY_to_px(this.m.y.min) + this.font_size*0.8 + this.sizes.border){
+                    y_pos_px = this.convert_unitY_to_px(this.m.y.min) + this.font_size*0.8 + this.sizes.border;
+                    numbers_off_grid = true;
+                }
+
+                // keep numbers on left margin if origin is off to right
+                // if(x_pos_px < this.convert_unitX_to_px(this.m.x.min) - number_width*1.2){
+                //     x_pos_px = this.convert_unitX_to_px(this.m.x.min) - number_width*1.2;
+                // }
+
+                //console.log(x_pos_px + number_width + this.border)
+                if(number == 0 && (!numbers_off_grid)){return} // if zero is off the plane it is okay to draw, otherwise do not
+
+                // if the numbers are not off the grid, and no number is outside of range then draw the number
+                if((!numbers_off_grid) && (x_pos_px + number_width + this.sizes.border > this.x1 || x_pos_px < this.x + this.sizes.border)){return}else{
+                    this.ctx.clearRect(x_pos_px, y_pos_px - this.font_size*0.80, number_width, this.font_size);
+                    this.ctx.fillText(number, x_pos_px, y_pos_px)
+                }
+                
             }
 
             draw_numbers_on_y_axis = (number = 1)=>{
                 if(number == 0){return} // exclude zero
+
                 this.change_font();
                 this.ctx.fillStyle = this.colors.grid_numbers;
 
+              
                 let number_string = number.toString();
                 let number_width = this.ctx.measureText(number_string).width;
+
+                let x_location_of_string = 0
+               
 
                 let x_pos_px = this.convert_unitX_to_px(0) - number_width - this.font_size*0.4 ;
                 let y_pos_px = this.convert_unitY_to_px(number) + this.font_size*0.3;
 
-                this.ctx.clearRect(x_pos_px, y_pos_px - this.font_size*0.80, number_width, this.font_size);
-                this.ctx.fillText(number, x_pos_px, y_pos_px)
+                // keep on numbers right margin if origin is off to right
+                if(x_pos_px > this.convert_unitX_to_px(this.m.x.max) + number_width*.2){
+                    x_pos_px = this.convert_unitX_to_px(this.m.x.max) + number_width*.2;
+                }
+
+                // keep numbers on left margin if origin is off to right
+                if(x_pos_px < this.convert_unitX_to_px(this.m.x.min) - number_width*1.2){
+                    x_pos_px = this.convert_unitX_to_px(this.m.x.min) - number_width*1.2;
+                }
+
+               // console.log("y_pos_px", y_pos_px)
+                //console.log("")
+                //if(y_pos_px + this.sizes.border*100  < this.y){return}
+                console.log(this.y)
+                if(y_pos_px < this.y + this.font_size || y_pos_px > this.y1){return}
+                    this.ctx.clearRect(x_pos_px, y_pos_px - this.font_size*0.80, number_width, this.font_size);
+                    this.ctx.fillText(number, x_pos_px, y_pos_px)
+         
+
+               
             }
 
 
@@ -354,15 +424,28 @@ class Coordinate_Plane{
     // create gridlines using the step of the plane as well as m (measurments of min and max unit values)
     new_grid = ()=>{
 
+        this.calc_m();
+
+        this.grid = {
+            vertical:[],
+            horizontal:[]
+        }
+
         // vertical lines
             // positive and zero
             let unit_x_value = this.calc_unit_value_x();
             for(let x = 0; x < this.m.x.max; x+= unit_x_value){
-                this.new_gridline(x,'vertical' );
+                if(x>this.m.x.min){
+                    this.new_gridline(x,'vertical' );
+                }else{}//do not do anything if x value is less than minimum
+                
             }
             // negative
             for(let x = -unit_x_value; x > this.m.x.min; x-= unit_x_value){
-                this.new_gridline(x,'vertical');
+                if(x<this.m.x.max){
+                    this.new_gridline(x,'vertical' );
+                }else{}//do not do anything if x value is less than minimum
+                //this.new_gridline(x,'vertical');
             }
         // horizontal lines
             // positive and zero
@@ -383,7 +466,7 @@ class Coordinate_Plane{
             //gridline.color = color;
             gridline.lineWidth = this.sizes.grid;
             
-            if(orientation == 'vertical'){
+            if(orientation == 'vertical'){                
                 this.grid.vertical.push(gridline)
             }
             if(orientation == 'horizontal'){
@@ -392,7 +475,18 @@ class Coordinate_Plane{
         }
 
 
+        // interactivity
+    pan_plane_horizontal = (number = 1) =>{
+        
+        this.new_grid();
+        this.origin.offset.x.px -= 3*number;
+        //this.origin.offset.x.px += 3*number;
+    }
+
+
+
 }
+
 
 
 // sub classes
