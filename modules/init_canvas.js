@@ -5,9 +5,25 @@ const init_canvas_and_ctx = (canvasId)=>{
     // set width and height to full screen
     canvas.width = innerWidth;
     canvas.height = innerHeight;
+    canvas.tabIndex = 1; // alows canvas to be focusable
+    canvas.focus();
+    
+    //document.activeElement = canvas;
+    console.log(document.activeElement)
 
     // get context
     const ctx = canvas.getContext('2d');
+
+    // remove scroll
+    function unloadScrollBars() {
+      document.documentElement.style.overflow = 'hidden';  // firefox, chrome
+      document.body.scroll = "no"; // ie only
+  }
+
+  unloadScrollBars();
+
+// Remove listener to re-enable scroll
+//window.removeEventListener('scroll', noScroll);
 
 
     return {

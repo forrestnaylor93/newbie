@@ -9,17 +9,27 @@ resizeCanvasToDisplaySize(canvas);
 
 const plane = new Coordinate_Plane(ctx);
 // make plane object
+//plane.add_keydown_listener(plane.panning_controls);
+plane.add_keydown_listener(plane.user_accelerate_left);
 
-let start;
+let start; // initial time
+let dt; // delta time
+
 let loop = (timestamp)=>{
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     if(start == undefined){start = 0}
-    //console.log(timestamp)
-    //console.log('loop')
+    dt = timestamp - start;
+    plane.dt = dt;
     plane.draw();
-    plane.pan_plane_horizontal(1);
+    start = timestamp;
+    
+
+    
+   
+    //plane.pan_plane_horizontal(3, 'left');
     requestAnimationFrame(loop)
 }
 
+plane.add_all_event_listeners()
 loop();
 

@@ -12,6 +12,8 @@ class Coordinate_Plane{
         this.y = 100; // highest point of graph
         this.y1 = 800; // lowest point of graph
 
+        this.dt = 0;
+
 
 
         // step is determined by:
@@ -19,7 +21,7 @@ class Coordinate_Plane{
         // (2) px, the number of px between each gridline
 
         this.step = {
-            x:{unit: {number: 1, e:2}, px: 200}, 
+            x:{unit: {number: 1, e:1}, px: 200}, 
             y:{unit: {number:1, e:2}, px: 200}
         }
 
@@ -78,6 +80,7 @@ class Coordinate_Plane{
         
 
         ///////////////////////////////////////////////////
+
         // objects
 
         // all coordinates and gridlines are based off of the origin and it's offset. Default of offset is 0 to start origin in the center
@@ -108,16 +111,20 @@ class Coordinate_Plane{
 
         /// interacitivy
         this.mousedown = [];
-        this.mouesup = [];
-        this.keydown = [];
+        this.mouseup = [];
+        this.keydown = [this.pan_left];
         this.keyup = [];
         this.mousemove = [];
-        this.event_listeners = []
+        this.event_listeners = [this.mousedown, this.mouseup, this.keydown, this.mousemove]
 
         
-        
+        // panning 
+        this.pan = {
+            x: {acceleration:1, velocity: 0, min_velocity: 5, max_velocity: 30}, // positive for right, negative for left
+            y: {acceleartion:0.1, velocity: 0, max_velocity: 10}
+        }
 
-        
+        this.add_keydown_listener();
        
         //this.new_gridline(0,'horizontal');
         this.new_grid(); // creates grid for new plane
@@ -127,7 +134,6 @@ class Coordinate_Plane{
         this.draw(); // test drawing
         //this.draw_numbers_on_x_axis();
 
-        //console.log(this.grid.horizontal[0])
 
        
 
@@ -184,7 +190,7 @@ class Coordinate_Plane{
         }
 
         draw_gridline = (gridline)=>{
-            //console.log(gridline.unit_value)
+ 
             if(gridline.orientation == 'vertical'){
                 if(gridline.unit_value < this.m.x.max && gridline.unit_value > this.m.x.min ){
                     this.draw_vertical_gridline(gridline);
@@ -221,7 +227,7 @@ class Coordinate_Plane{
             }
 
             draw_horizontal_gridine = (gridline)=>{
-                //console.log('drawing horizontal')
+
                 let y_unit = gridline.unit_value;
                 let y_px = this.convert_unitY_to_px(y_unit);
                 let x_px = this.x;
@@ -274,7 +280,7 @@ class Coordinate_Plane{
                 //     x_pos_px = this.convert_unitX_to_px(this.m.x.min) - number_width*1.2;
                 // }
 
-                //console.log(x_pos_px + number_width + this.border)
+
                 if(number == 0 && (!numbers_off_grid)){return} // if zero is off the plane it is okay to draw, otherwise do not
 
                 // if the numbers are not off the grid, and no number is outside of range then draw the number
@@ -286,7 +292,6 @@ class Coordinate_Plane{
             }
 
             draw_numbers_on_y_axis = (number = 1)=>{
-                if(number == 0){return} // exclude zero
 
                 this.change_font();
                 this.ctx.fillStyle = this.colors.grid_numbers;
@@ -301,21 +306,23 @@ class Coordinate_Plane{
                 let x_pos_px = this.convert_unitX_to_px(0) - number_width - this.font_size*0.4 ;
                 let y_pos_px = this.convert_unitY_to_px(number) + this.font_size*0.3;
 
+                let numbers_off_grid = false;
                 // keep on numbers right margin if origin is off to right
-                if(x_pos_px > this.convert_unitX_to_px(this.m.x.max) + number_width*.2){
-                    x_pos_px = this.convert_unitX_to_px(this.m.x.max) + number_width*.2;
+                if(x_pos_px > this.convert_unitX_to_px(this.m.x.max) + this.font_size*0.5){
+                    x_pos_px = this.convert_unitX_to_px(this.m.x.max) + this.font_size*0.5;
+                    numbers_off_grid = true;
                 }
 
                 // keep numbers on left margin if origin is off to right
-                if(x_pos_px < this.convert_unitX_to_px(this.m.x.min) - number_width*1.2){
-                    x_pos_px = this.convert_unitX_to_px(this.m.x.min) - number_width*1.2;
+                if(x_pos_px < this.convert_unitX_to_px(this.m.x.min) - number_width*1 - this.font_size/2){
+                    x_pos_px = this.convert_unitX_to_px(this.m.x.min) - number_width*1 - this.font_size/2
+                    numbers_off_grid = true;
                 }
 
-               // console.log("y_pos_px", y_pos_px)
-                //console.log("")
-                //if(y_pos_px + this.sizes.border*100  < this.y){return}
-                console.log(this.y)
-                if(y_pos_px < this.y + this.font_size || y_pos_px > this.y1){return}
+     
+
+                if(number == 0 && (!numbers_off_grid)){return}
+                else if(y_pos_px < this.y + this.font_size || y_pos_px > this.y1){return}
                     this.ctx.clearRect(x_pos_px, y_pos_px - this.font_size*0.80, number_width, this.font_size);
                     this.ctx.fillText(number, x_pos_px, y_pos_px)
          
@@ -475,13 +482,73 @@ class Coordinate_Plane{
         }
 
 
-        // interactivity
-    pan_plane_horizontal = (number = 1) =>{
+        // interactivity -> direction can be 'up', 'down', 'left', or 'right'
+    pan_plane = (amount = 1, direction = "up") =>{
+        
+        
+        switch(direction){
+            case "up":
+                this.origin.offset.y.px -= amount;
+            break;
+            case "down":
+                this.origin.offset.y.px += amount;
+            break;
+            case "left":
+                this.origin.offset.x.px += amount;
+            break;
+            case "right":
+                this.origin.offset.x.px -= amount;
+            break;
+            default:
+        }
         
         this.new_grid();
-        this.origin.offset.x.px -= 3*number;
+        
         //this.origin.offset.x.px += 3*number;
     }
+
+    user_accelerate_left = (e)=>{
+        if(e.key == 'ArrowLeft'){
+            this.pan.x.velocity -= this.pan.x.acceleration*this.dt;
+            if(Math.abs(this.pan.x.velocity) < this.pan.x.min_velocity){
+                this.pan.x.velocity = -1*this.pan.x.min_velocity*this.dt;
+            }
+            if(Math.abs(this.pan.x.velocity) > this.pan.x.max_velocity){
+                this.pan.x.velocity = -1*this.pan.x.max_velocity
+            }
+            console.log(this.pan.x.velocity);
+            this.pan_plane(this.pan.x.velocity, 'right')
+            console.log('accelerate left')
+        }
+    }
+
+
+    // event listener stuff
+    add_all_event_listeners = ()=>{
+        console.log(this.event_listeners.constructor.name);
+        // this.event_listeners.forEach((listener_type_list)=>{
+            
+        // })
+    }
+
+    add_keydown_listener = (listener = this.keydown_message)=>{
+        this.canvas.addEventListener('keydown', listener)
+    }
+        keydown_message = (e)=>{console.log('keydown, e.key =  ' + e.key )}
+
+        panning_controls = (e)=>{
+           
+        }
+
+        // pan_left = (e)=>{
+        //     if(e.key == 'ArrowLeft'){
+        //         this.pan_plane_horizontal(1,'left')
+        //     }
+        // }
+
+        // pan_right = (e)=>{
+        //     if(e.key == '')
+        // }
 
 
 
