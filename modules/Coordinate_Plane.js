@@ -12,7 +12,7 @@ class Coordinate_Plane{
         this.y = 100; // highest point of graph
         this.y1 = 800; // lowest point of graph
 
-        this.dt = 0;
+        this.dt = 0; // time interval for animations
 
 
 
@@ -21,8 +21,8 @@ class Coordinate_Plane{
         // (2) px, the number of px between each gridline
 
         this.step = {
-            x:{unit: {number: 1, e:1}, px: 200}, 
-            y:{unit: {number:1, e:2}, px: 200}
+            x:{unit: {number: 1, e:0}, px: 200}, 
+            y:{unit: {number:1, e:0}, px: 200}
         }
 
         this.width = this.x1 - this.x; // width of the coord plane
@@ -112,7 +112,7 @@ class Coordinate_Plane{
         /// interacitivy
         this.mousedown = [];
         this.mouseup = [];
-        this.keydown = [this.pan_left];
+        this.keydown = [];
         this.keyup = [];
         this.mousemove = [];
         this.event_listeners = [this.mousedown, this.mouseup, this.keydown, this.mousemove]
@@ -121,10 +121,12 @@ class Coordinate_Plane{
         // panning 
         this.pan = {
             x: {acceleration:1, velocity: 0, min_velocity: 5, max_velocity: 30}, // positive for right, negative for left
-            y: {acceleartion:0.1, velocity: 0, max_velocity: 10}
+            y: {acceleartion:0.1, velocity: 0, min_velocity:5, max_velocity: 30},
+            pan_left: false
         }
 
         this.add_keydown_listener();
+        this.add_keydown_listener(this.control_pan_keydown)
        
         //this.new_gridline(0,'horizontal');
         this.new_grid(); // creates grid for new plane
@@ -143,6 +145,10 @@ class Coordinate_Plane{
 
     draw = ()=>{
 
+        this.origin.offset.x.px += this.pan.x.velocity;
+        this.origin.offset.y.px -= this.pan.y.velocity;
+        this.calc_m();
+        this.new_grid();
         // drawing gridlines
             this.grid.vertical.forEach((gridline)=>{
                 this.draw_gridline(gridline);
@@ -331,6 +337,7 @@ class Coordinate_Plane{
             }
 
 
+
     // calculate measurements
     calculate = ()=>{
     }
@@ -482,46 +489,31 @@ class Coordinate_Plane{
         }
 
 
-        // interactivity -> direction can be 'up', 'down', 'left', or 'right'
-    pan_plane = (amount = 1, direction = "up") =>{
-        
-        
-        switch(direction){
-            case "up":
-                this.origin.offset.y.px -= amount;
+    // interactive functions
+
+    control_pan_keydown = (e)=>{
+        switch(e.key){
+            case 'ArrowLeft':
+                if(this.pan.x.velocity > -1*this.pan.x.max_velocity){
+                    this.pan.x.velocity -= 1
+                }else{this.pan.x.velocity = this.pan.x.max_velocity*-1}
+                
             break;
-            case "down":
-                this.origin.offset.y.px += amount;
+            case 'ArrowRight':
+                if(this.pan.x.velocity < this.pan.x.max_velocity){
+                    this.pan.x.velocity += 1
+                }else{this.pan.x.velocity = this.pan.x.max_velocity}
+                
             break;
-            case "left":
-                this.origin.offset.x.px += amount;
+            case 'ArrowUp':
+                this.pan.y.velocity += 1
             break;
-            case "right":
-                this.origin.offset.x.px -= amount;
+            case 'ArrowDown':
+                this.pan.y.velocity -= 1
             break;
             default:
         }
-        
-        this.new_grid();
-        
-        //this.origin.offset.x.px += 3*number;
     }
-
-    user_accelerate_left = (e)=>{
-        if(e.key == 'ArrowLeft'){
-            this.pan.x.velocity -= this.pan.x.acceleration*this.dt;
-            if(Math.abs(this.pan.x.velocity) < this.pan.x.min_velocity){
-                this.pan.x.velocity = -1*this.pan.x.min_velocity*this.dt;
-            }
-            if(Math.abs(this.pan.x.velocity) > this.pan.x.max_velocity){
-                this.pan.x.velocity = -1*this.pan.x.max_velocity
-            }
-            console.log(this.pan.x.velocity);
-            this.pan_plane(this.pan.x.velocity, 'right')
-            console.log('accelerate left')
-        }
-    }
-
 
     // event listener stuff
     add_all_event_listeners = ()=>{
@@ -536,19 +528,7 @@ class Coordinate_Plane{
     }
         keydown_message = (e)=>{console.log('keydown, e.key =  ' + e.key )}
 
-        panning_controls = (e)=>{
-           
-        }
-
-        // pan_left = (e)=>{
-        //     if(e.key == 'ArrowLeft'){
-        //         this.pan_plane_horizontal(1,'left')
-        //     }
-        // }
-
-        // pan_right = (e)=>{
-        //     if(e.key == '')
-        // }
+    
 
 
 
