@@ -121,12 +121,16 @@ class Coordinate_Plane{
         // panning 
         this.pan = {
             x: {acceleration:1, velocity: 0, min_velocity: 5, max_velocity: 30}, // positive for right, negative for left
-            y: {acceleartion:0.1, velocity: 0, min_velocity:5, max_velocity: 30},
-            pan_left: false
+            y: {acceleration:1, velocity: 0, min_velocity:5, max_velocity: 30},
+            brakes: {x: false, y: false}
         }
 
         this.add_keydown_listener();
+        this.add_keyup_listener();
+
         this.add_keydown_listener(this.control_pan_keydown)
+        this.add_keyup_listener(this.control_pan_keyup)
+
        
         //this.new_gridline(0,'horizontal');
         this.new_grid(); // creates grid for new plane
@@ -145,6 +149,21 @@ class Coordinate_Plane{
 
     draw = ()=>{
 
+        if(this.pan.brakes.x){
+            this.pan.x.velocity *= 0.90
+            if(Math.abs(this.pan.x.velocity) < 0.1 ){
+                this.pan.x.velocity = 0 ;
+            }
+            
+        }
+
+        if(this.pan.brakes.y){
+            this.pan.y.velocity *= 0.90
+            if(Math.abs(this.pan.y.velocity) < 0.1 ){
+                this.pan.y.velocity = 0 ;
+            }
+            
+        }
         this.origin.offset.x.px += this.pan.x.velocity;
         this.origin.offset.y.px -= this.pan.y.velocity;
         this.calc_m();
@@ -288,6 +307,9 @@ class Coordinate_Plane{
 
 
                 if(number == 0 && (!numbers_off_grid)){return} // if zero is off the plane it is okay to draw, otherwise do not
+
+                // make sure negative signs to mess up rect clear
+                if(number < 0){number_width += minus_width}
 
                 // if the numbers are not off the grid, and no number is outside of range then draw the number
                 if((!numbers_off_grid) && (x_pos_px + number_width + this.sizes.border > this.x1 || x_pos_px < this.x + this.sizes.border)){return}else{
@@ -492,24 +514,59 @@ class Coordinate_Plane{
     // interactive functions
 
     control_pan_keydown = (e)=>{
+        console.log(this.pan.brakes.x)
+        //if(this.pan.x.acceleration < 0){this.pan.x.acceleration *= -1} // switches acceleration to positive
+        //if(this.pan.y.acceleration < 0){this.pan.x.acceleration *= -1} // switches acceleration to positive
         switch(e.key){
             case 'ArrowLeft':
+                this.pan.brakes.x = false;
+                if(this.pan.x.velocity < this.pan.x.max_velocity){
+                    this.pan.x.velocity += this.pan.x.acceleration
+                }else{this.pan.x.velocity = this.pan.x.max_velocity}
+                console.log('velocity', this.pan.x.velocity)
+            break;
+
+            case 'ArrowRight':
+                this.pan.brakes.x = false;
                 if(this.pan.x.velocity > -1*this.pan.x.max_velocity){
-                    this.pan.x.velocity -= 1
+                    this.pan.x.velocity -= this.pan.x.acceleration
                 }else{this.pan.x.velocity = this.pan.x.max_velocity*-1}
-                
+            break;
+
+            case 'ArrowUp':
+                this.pan.brakes.y = false;
+                if(this.pan.y.velocity > -1*this.pan.y.max_velocity){
+                    this.pan.y.velocity -= this.pan.y.acceleration;
+                }else{this.pan.y.velocity = this.pan.y.max_velocity*-1}
+            break;
+
+            case 'ArrowDown':
+                this.pan.brakes.y = false;
+                if(this.pan.y.velocity < this.pan.y.max_velocity){
+                    this.pan.y.velocity += this.pan.y.acceleration;
+                }else{this.pan.y.velocity = this.pan.y.max_velocity}
+            break;
+            default:
+        }
+       
+    }
+
+    control_pan_keyup = (e)=>{
+        if(this.pan.x.acceleration > 0){this.pan.x.acceleration *= -1}// switches accleration to negative
+        if(this.pan.y.acceleration > 0){this.pan.x.acceleration *= -1} // switches acceleration to negative
+
+        switch(e.key){
+            case 'ArrowLeft':
+                this.pan.brakes.x = true;
             break;
             case 'ArrowRight':
-                if(this.pan.x.velocity < this.pan.x.max_velocity){
-                    this.pan.x.velocity += 1
-                }else{this.pan.x.velocity = this.pan.x.max_velocity}
-                
+                this.pan.brakes.x = true;
             break;
             case 'ArrowUp':
-                this.pan.y.velocity += 1
+                this.pan.brakes.y = true;
             break;
             case 'ArrowDown':
-                this.pan.y.velocity -= 1
+                this.pan.brakes.y = true;
             break;
             default:
         }
@@ -526,8 +583,12 @@ class Coordinate_Plane{
     add_keydown_listener = (listener = this.keydown_message)=>{
         this.canvas.addEventListener('keydown', listener)
     }
-        keydown_message = (e)=>{console.log('keydown, e.key =  ' + e.key )}
+        keydown_message = (e)=>{console.log('keydown, e.key == ' + e.key )}
 
+    add_keyup_listener = (listener = this.keyup_message)=>{
+        this.canvas.addEventListener('keyup', listener)
+    }
+        keyup_message = (e)=>{console.log('keyup, e.key == ' + e.key)}
     
 
 
