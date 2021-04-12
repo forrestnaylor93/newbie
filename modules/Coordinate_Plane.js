@@ -1,4 +1,7 @@
+import {round} from './round_decimals.js';
 class Coordinate_Plane{
+    
+    
     constructor(ctx){
         ////////////////////////////////////////////////////
         // assets
@@ -7,10 +10,10 @@ class Coordinate_Plane{
 
         ////////////////////////////////////////////////////
         // properties
-        this.x = 100; // leftmost point of graph
-        this.x1 = 1000; // rightmost point of graph
-        this.y = 100; // highest point of graph
-        this.y1 = 800; // lowest point of graph
+        this.x = 0; // leftmost point of graph
+        this.x1 = this.canvas.width; // rightmost point of graph
+        this.y = 0; // highest point of graph
+        this.y1 = this.canvas.height; // lowest point of graph
 
         this.dt = 0; // time interval for animations
 
@@ -21,8 +24,8 @@ class Coordinate_Plane{
         // (2) px, the number of px between each gridline
 
         this.step = {
-            x:{unit: {number: 1, e:0}, px: 200}, 
-            y:{unit: {number:1, e:0}, px: 200}
+            x:{unit: {number: 1, e:-10}, px: 400, px_min: 100, px_max: 200, minor_divisor:4}, 
+            y:{unit: {number:1, e:0}, px: 400, px_min: 100, px_max: 200, minor_divisor:4}
         }
 
         this.width = this.x1 - this.x; // width of the coord plane
@@ -120,9 +123,17 @@ class Coordinate_Plane{
         
         // panning 
         this.pan = {
-            x: {acceleration:1, velocity: 0, min_velocity: 5, max_velocity: 30}, // positive for right, negative for left
-            y: {acceleration:1, velocity: 0, min_velocity:5, max_velocity: 30},
+            x: {acceleration:1, velocity: 0, min_velocity: 5, max_velocity: 60}, // positive for right, negative for left
+            y: {acceleration:1, velocity: 0, min_velocity:5, max_velocity: 60},
             brakes: {x: false, y: false}
+        }
+
+        // zooming
+        this.zoom = {
+            in: {acceleration: .1, rate: 0, max_rate: 10},
+            out: {acceleration: .1, rate: 0, max_rate: 4},
+            zoom_out: false,
+            zoom_in: false
         }
 
         this.add_keydown_listener();
@@ -130,6 +141,9 @@ class Coordinate_Plane{
 
         this.add_keydown_listener(this.control_pan_keydown)
         this.add_keyup_listener(this.control_pan_keyup)
+
+        this.add_keydown_listener(this.zoom_out_keydown);
+        this.add_keyup_listener(this.zoom_out_keyup);
 
        
         //this.new_gridline(0,'horizontal');
@@ -145,29 +159,78 @@ class Coordinate_Plane{
 
     }
 
-    // drawing functions
+    // update functions
 
-    draw = ()=>{
-
+    update_pan = ()=>{
+        
         if(this.pan.brakes.x){
-            this.pan.x.velocity *= 0.90
+            this.pan.x.velocity *= 0
             if(Math.abs(this.pan.x.velocity) < 0.1 ){
                 this.pan.x.velocity = 0 ;
             }
             
         }
 
+  
+
         if(this.pan.brakes.y){
-            this.pan.y.velocity *= 0.90
+            this.pan.y.velocity *= 0.80
             if(Math.abs(this.pan.y.velocity) < 0.1 ){
                 this.pan.y.velocity = 0 ;
             }
             
         }
+        
+
+      
         this.origin.offset.x.px += this.pan.x.velocity;
         this.origin.offset.y.px -= this.pan.y.velocity;
-        this.calc_m();
+
+        
         this.new_grid();
+   
+        
+
+    }
+
+    update_zoom = () =>{
+        if(this.zoom.zoom_out && this.step.x.px > this.step.x.px_min){
+            this.step.x.px -= this.zoom.out.rate;
+        }
+        else if(this.zoom.zoom_out && this.step.x.unit.e <= 200 && this.step.x.unit.e >= -200){
+            console.log(this.step.x.unit.e);
+            this.step.x.px = this.step.x.px_max;
+            this.new_grid();
+            switch(this.step.x.unit.number){
+                case 1:
+                    this.step.x.unit.number *= 2;
+                    this.step.x.unit.number = round(this.step.x.unit.number)
+                break;
+                case 2:
+                    this.step.x.unit.number *= 2.5;
+                    this.step.x.unit.number = round(this.step.x.unit.number)
+                    
+                break;
+                case 5:
+                    this.step.x.unit.number /= 5;
+                    this.step.x.unit.e += 1;
+                    this.step.x.unit.number = round(this.step.x.unit.number)
+                break;
+                default:
+                
+
+            }
+        }
+      
+    }
+
+    // drawing functions
+
+    draw = ()=>{
+        this.update_zoom();
+        
+        this.update_pan();
+
         // drawing gridlines
             this.grid.vertical.forEach((gridline)=>{
                 this.draw_gridline(gridline);
@@ -175,6 +238,8 @@ class Coordinate_Plane{
             this.grid.horizontal.forEach((gridline)=>{
                 this.draw_gridline(gridline);
             })
+
+
 
         // drawing axes
         this.draw_gridline(this.x_axis)
@@ -185,6 +250,7 @@ class Coordinate_Plane{
 
         // drawing origin
         this.draw_point(this.origin);
+        
 
         // drawing other points
         this.points.forEach((point)=>{
@@ -215,7 +281,6 @@ class Coordinate_Plane{
         }
 
         draw_gridline = (gridline)=>{
- 
             if(gridline.orientation == 'vertical'){
                 if(gridline.unit_value < this.m.x.max && gridline.unit_value > this.m.x.min ){
                     this.draw_vertical_gridline(gridline);
@@ -310,7 +375,10 @@ class Coordinate_Plane{
 
                 // make sure negative signs to mess up rect clear
                 if(number < 0){number_width += minus_width}
-
+                if(number < 1e-6 ){
+                    //power_of_10 = 
+                    //number = 
+                }
                 // if the numbers are not off the grid, and no number is outside of range then draw the number
                 if((!numbers_off_grid) && (x_pos_px + number_width + this.sizes.border > this.x1 || x_pos_px < this.x + this.sizes.border)){return}else{
                     this.ctx.clearRect(x_pos_px, y_pos_px - this.font_size*0.80, number_width, this.font_size);
@@ -459,7 +527,6 @@ class Coordinate_Plane{
 
     // create gridlines using the step of the plane as well as m (measurments of min and max unit values)
     new_grid = ()=>{
-
         this.calc_m();
 
         this.grid = {
@@ -467,45 +534,74 @@ class Coordinate_Plane{
             horizontal:[]
         }
 
+
+
         // vertical lines
             // positive and zero
             let unit_x_value = this.calc_unit_value_x();
-            for(let x = 0; x < this.m.x.max; x+= unit_x_value){
+            
+
+            
+            for(let x = 0; x < this.m.x.max; x+= round(unit_x_value)){
+                x = round(x);
+               // console.log(round(unit_x_value))
                 if(x>this.m.x.min){
                     this.new_gridline(x,'vertical' );
-                }else{}//do not do anything if x value is less than minimum
+                }else{console.log('harumph!')}//do not do anything if x value is less than minimum
                 
             }
+
+            
+
+            
+
             // negative
-            for(let x = -unit_x_value; x > this.m.x.min; x-= unit_x_value){
+            for(let x = round(-unit_x_value); x > this.m.x.min; x-= round(unit_x_value)){
+                
                 if(x<this.m.x.max){
+                    
                     this.new_gridline(x,'vertical' );
-                }else{}//do not do anything if x value is less than minimum
+                }else{return}//do not do anything if x value is less than minimum
                 //this.new_gridline(x,'vertical');
             }
+
+            
+            
         // horizontal lines
             // positive and zero
             let unit_y_value = this.calc_unit_value_y();
             for(let y = 0; y < this.m.y.max; y += unit_y_value ){
+                y = round(y);
                 this.new_gridline(y,'horizontal');
             }
+
             // negative
             for(let y = -unit_y_value; y > this.m.y.min; y -= unit_y_value){
+                y = round(y);
                 this.new_gridline(y,'horizontal');
             }
+
+
+
     }
 
 
         // create a new gridline -> used in function new_grid()
         new_gridline = (unit_position = 0, orientation = null, color = this.colors.grid, lineWidth = this.sizes.grid)=>{
+            
+           
             let gridline = new Gridline(unit_position, orientation, color);
             //gridline.color = color;
             gridline.lineWidth = this.sizes.grid;
             
-            if(orientation == 'vertical'){                
+            if(orientation == 'vertical'){     
+               unit_position = round(unit_position, 3)   
+                gridline.unit_value = round(unit_position)        
                 this.grid.vertical.push(gridline)
             }
             if(orientation == 'horizontal'){
+                unit_position = round(unit_position, this.step.y.unit.e + 3)   
+                gridline.unit_value = unit_position;      
                 this.grid.horizontal.push(gridline)
             }
         }
@@ -514,7 +610,6 @@ class Coordinate_Plane{
     // interactive functions
 
     control_pan_keydown = (e)=>{
-        console.log(this.pan.brakes.x)
         //if(this.pan.x.acceleration < 0){this.pan.x.acceleration *= -1} // switches acceleration to positive
         //if(this.pan.y.acceleration < 0){this.pan.x.acceleration *= -1} // switches acceleration to positive
         switch(e.key){
@@ -523,7 +618,6 @@ class Coordinate_Plane{
                 if(this.pan.x.velocity < this.pan.x.max_velocity){
                     this.pan.x.velocity += this.pan.x.acceleration
                 }else{this.pan.x.velocity = this.pan.x.max_velocity}
-                console.log('velocity', this.pan.x.velocity)
             break;
 
             case 'ArrowRight':
@@ -552,8 +646,8 @@ class Coordinate_Plane{
     }
 
     control_pan_keyup = (e)=>{
-        if(this.pan.x.acceleration > 0){this.pan.x.acceleration *= -1}// switches accleration to negative
-        if(this.pan.y.acceleration > 0){this.pan.x.acceleration *= -1} // switches acceleration to negative
+        //if(this.pan.x.acceleration > 0){this.pan.x.acceleration *= -1}// switches accleration to negative
+        //if(this.pan.y.acceleration > 0){this.pan.x.acceleration *= -1} // switches acceleration to negative
 
         switch(e.key){
             case 'ArrowLeft':
@@ -572,9 +666,29 @@ class Coordinate_Plane{
         }
     }
 
+    zoom_out_keydown = (e)=>{
+        // work on zoom
+        // this.step.x.px -= .1;
+        // this.step.y.px -= .1;
+        if(e.key == '['){
+            if(this.zoom.out.rate < this.zoom.out.max_rate){
+                this.zoom.zoom_out = true;
+                this.zoom.out.rate += this.zoom.out.acceleration
+            }
+            
+        }
+    }
+
+    zoom_out_keyup = (e)=>{
+        if(e.key == '['){
+            this.zoom.zoom_out = false;
+            this.zoom.out.rate = 1;
+            console.log(this.zoom.zoom_out)
+        }
+    }
+
     // event listener stuff
     add_all_event_listeners = ()=>{
-        console.log(this.event_listeners.constructor.name);
         // this.event_listeners.forEach((listener_type_list)=>{
             
         // })
@@ -583,12 +697,12 @@ class Coordinate_Plane{
     add_keydown_listener = (listener = this.keydown_message)=>{
         this.canvas.addEventListener('keydown', listener)
     }
-        keydown_message = (e)=>{console.log('keydown, e.key == ' + e.key )}
+        keydown_message = (e)=>{console.log('/////////////// keydown, e.key == ' + e.key )}
 
     add_keyup_listener = (listener = this.keyup_message)=>{
         this.canvas.addEventListener('keyup', listener)
     }
-        keyup_message = (e)=>{console.log('keyup, e.key == ' + e.key)}
+        keyup_message = (e)=>{console.log('///////////////keyup, e.key == ' + e.key)}
     
 
 
