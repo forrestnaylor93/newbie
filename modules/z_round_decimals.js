@@ -100,3 +100,30 @@ export {round};
 
 // let rounded = round(.0001)
 // console.log(rounded)
+
+
+    // zooom in 
+    else if(this.step.x.px > this.step.x.px_max && this.zoom_out && this.step.x.unit.e <= 200-1 && this.step.x.unit.e >= -200 + 1){
+        console.log(this.step.x.unit.e);
+        this.step.x.px = this.step.x.px_max;
+        this.new_grid();
+        switch(this.step.x.unit.number){
+            case 1:
+                this.step.x.unit.number *= 5;
+                this.step.x.unit.e -= 1;
+                this.step.x.unit.number = round(this.step.x.unit.number)
+            break;
+            case 2:
+                this.step.x.unit.number /= 2;
+                this.step.x.unit.number = round(this.step.x.unit.number)
+                
+            break;
+            case 5:
+                this.step.x.unit.number /= 2.5;
+                this.step.x.unit.number = round(this.step.x.unit.number)
+            break;
+            default:
+            
+
+        }
+    }

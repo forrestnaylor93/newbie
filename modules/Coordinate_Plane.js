@@ -10,10 +10,10 @@ class Coordinate_Plane{
 
         ////////////////////////////////////////////////////
         // properties
-        this.x = 0; // leftmost point of graph
-        this.x1 = this.canvas.width; // rightmost point of graph
-        this.y = 0; // highest point of graph
-        this.y1 = this.canvas.height; // lowest point of graph
+        this.x = 100; // leftmost point of graph
+        this.x1 = 800; // rightmost point of graph
+        this.y = 100; // highest point of graph
+        this.y1 = 780; // lowest point of graph
 
         this.dt = 0; // time interval for animations
 
@@ -24,7 +24,7 @@ class Coordinate_Plane{
         // (2) px, the number of px between each gridline
 
         this.step = {
-            x:{unit: {number: 1, e:-10}, px: 400, px_min: 100, px_max: 200, minor_divisor:4}, 
+            x:{unit: {number: 1, e:1}, px: 400, px_min: 100, px_max: 200, minor_divisor:4}, 
             y:{unit: {number:1, e:0}, px: 400, px_min: 100, px_max: 200, minor_divisor:4}
         }
 
@@ -88,8 +88,8 @@ class Coordinate_Plane{
 
         // all coordinates and gridlines are based off of the origin and it's offset. Default of offset is 0 to start origin in the center
         this.origin = new Origin(this.sizes.origin, this.colors.origin)
-        this.origin.offset.x.px = +180; // origin x offset in px (push origin to right: + positive values, to left: - negative values)
-        this.origin.offset.y.px = +100; // origin y offset in px (push origin down: + positive values, up: - negative values)
+        this.origin.offset.x.px = 0; // origin x offset in px (push origin to right: + positive values, to left: - negative values)
+        this.origin.offset.y.px = 0; // origin y offset in px (push origin down: + positive values, up: - negative values)
 
         this.x_axis = new Axis('x', this.colors.x_axis);
         this.y_axis = new Axis('y', this.colors.y_axis)
@@ -118,7 +118,8 @@ class Coordinate_Plane{
         this.keydown = [];
         this.keyup = [];
         this.mousemove = [];
-        this.event_listeners = [this.mousedown, this.mouseup, this.keydown, this.mousemove]
+        this.wheel = [];
+        this.event_listeners = [this.mousedown, this.mouseup, this.keydown, this.mousemove, this.wheel]
 
         
         // panning 
@@ -128,12 +129,18 @@ class Coordinate_Plane{
             brakes: {x: false, y: false}
         }
 
+        this.mouse = {
+            x: {px: 0, unit: 0},
+            y: {px: 0, unit: 0}
+        }
+
         // zooming
         this.zoom = {
-            in: {acceleration: .1, rate: 0, max_rate: 10},
-            out: {acceleration: .1, rate: 0, max_rate: 4},
+            in: {acceleration: .6, rate: 0, max_rate: 4},
+            out: {acceleration: .6, rate: 0, max_rate: 4},
             zoom_out: false,
-            zoom_in: false
+            zoom_in: false,
+            spin: 0,
         }
 
         this.add_keydown_listener();
@@ -145,6 +152,9 @@ class Coordinate_Plane{
         this.add_keydown_listener(this.zoom_out_keydown);
         this.add_keyup_listener(this.zoom_out_keyup);
 
+        this.add_keydown_listener(this.zoom_in_keydown);
+        this.add_keyup_listener(this.zoom_in_keyup);
+
        
         //this.new_gridline(0,'horizontal');
         this.new_grid(); // creates grid for new plane
@@ -155,8 +165,39 @@ class Coordinate_Plane{
         //this.draw_numbers_on_x_axis();
 
 
-       
+        // zoom with wheel event listner, needs to be worked into this.event_listeners by creating and using this.add_wheel_listener()
+       this.canvas.addEventListener('wheel', (e)=>{
+            this.zoom.zoom_in = false;
+            this.zoom.spin = e.wheelDelta;
 
+            if(this.zoom.spin < 0){
+               this.zoom.out.rate += this.zoom.out.acceleration*this.dt/17; // this rate seems to move smoothly
+            }
+            if(this.zoom.out.rate >= this.zoom.out.max_rate){
+                this.zoom.out.rate = this.zoom.out.max_rate
+            }
+
+            if(this.zoom.spin > 0){
+                this.zoom.in.rate += this.zoom.in.acceleration*this.dt/17; // this rate seems to move smoothly
+            }
+            if(this.zoom.in.rate >= this.zoom.in.max_rate){
+                this.zoom.in.rate = this.zoom.in.max_rate
+            }
+            
+            
+
+            
+            
+           
+       })
+
+       // mouse tracking event_listener, needs to be worked into this.event_listeners by creating and using a this.add_mousemove_listener()
+       this.canvas.addEventListener('mousemove', (e)=>{
+           this.mouse.x.px = e.clientX;
+           this.mouse.x.unit = round(this.convert_pxX_to_unit(this.mouse.x.px))
+           this.mouse.y.px = e.clientY;
+           this.mouse.y.unit = round(this.convert_pxY_to_unit(this.mouse.y.px))
+       })
     }
 
     // update functions
@@ -194,13 +235,25 @@ class Coordinate_Plane{
     }
 
     update_zoom = () =>{
-        if(this.zoom.zoom_out && this.step.x.px > this.step.x.px_min){
-            this.step.x.px -= this.zoom.out.rate;
+
+        // zoom out
+        if((this.zoom.zoom_out || this.zoom.spin < 0 ) && this.step.x.px > this.step.x.px_min ){
+            
+            this.step.x.px -= this.zoom.out.rate*this.dt/17;
+            
+            if(this.zoom.spin < -10){
+                this.zoom.spin = -7;
+            }else{
+                this.zoom.spin += 1;
+                if(this.zoom.spin == 0){
+                    this.zoom.out.rate = 0;
+                }
+            }
+            
         }
-        else if(this.zoom.zoom_out && this.step.x.unit.e <= 200 && this.step.x.unit.e >= -200){
-            console.log(this.step.x.unit.e);
+        else if((this.zoom.zoom_out || this.zoom.spin < 0)&& this.step.x.unit.e <= 200 && this.step.x.unit.e >= -200 ){
             this.step.x.px = this.step.x.px_max;
-            this.new_grid();
+            //this.new_grid();
             switch(this.step.x.unit.number){
                 case 1:
                     this.step.x.unit.number *= 2;
@@ -214,6 +267,66 @@ class Coordinate_Plane{
                 case 5:
                     this.step.x.unit.number /= 5;
                     this.step.x.unit.e += 1;
+                    this.step.x.unit.number = round(this.step.x.unit.number)
+                break;
+                default:
+                
+
+            }
+        }
+
+        //zoom in
+        if((this.zoom.zoom_in || this.zoom.spin > 0 ) && this.step.x.px < this.step.x.px_max){
+          
+
+            let original_step = this.step.x.px
+            let steps_between_mouse_and_origin = this.mouse.x.unit;
+            this.step.x.px += this.zoom.in.rate*this.dt/17;
+            let new_steps_between_mouse_and_origin = steps_between_mouse_and_origin*(original_step/this.step.x.px);
+            let diff_in_steps = new_steps_between_mouse_and_origin - steps_between_mouse_and_origin;
+            let diff_in_pixels = this.convert_unitX_to_px(diff_in_steps);
+            console.log(diff_in_pixels)
+           // this.origin.offset.x.px -= diff_in_pixels
+            //let change_ratio = (this.step.x.px/original_step);
+
+            //console.log(change_ratio)
+            //this.origin.offset.x.px = 
+
+            //this.origin.offset
+            
+            
+
+            // allowing for zoom to shift origin offset
+              
+           // console.log(this.mouse.x.unit*(1+this.zoom.in.rate*this.dt/17))
+           // this.origin.offset.x.px += px_change*this.dt/17//px_change;
+            
+
+
+            //this.origin.offset.x.px += x_distance_to_mouse/100;
+            if(this.zoom.spin > 10){
+                this.zoom.spin = 7;
+            }else{
+                this.zoom.spin -= 1;
+                if(this.zoom.spin == 0){
+                    this.zoom.in.rate = 0;
+                }
+            }
+        }else if((this.zoom.zoom_in || this.zoom.spin > 0 )){
+            this.step.x.px = this.step.x.px_min;
+            switch(this.step.x.unit.number){
+                case 1:
+                    this.step.x.unit.number *= 5;
+                    this.step.x.unit.e -= 1;
+                    this.step.x.unit.number = round(this.step.x.unit.number)
+                break;
+                case 2:
+                    this.step.x.unit.number *= 0.5;
+                    this.step.x.unit.number = round(this.step.x.unit.number)
+                    
+                break;
+                case 5:
+                    this.step.x.unit.number *= 0.4;
                     this.step.x.unit.number = round(this.step.x.unit.number)
                 break;
                 default:
@@ -544,7 +657,6 @@ class Coordinate_Plane{
             
             for(let x = 0; x < this.m.x.max; x+= round(unit_x_value)){
                 x = round(x);
-               // console.log(round(unit_x_value))
                 if(x>this.m.x.min){
                     this.new_gridline(x,'vertical' );
                 }else{console.log('harumph!')}//do not do anything if x value is less than minimum
@@ -671,19 +783,44 @@ class Coordinate_Plane{
         // this.step.x.px -= .1;
         // this.step.y.px -= .1;
         if(e.key == '['){
+            this.zoom.zoom_in = false;
             if(this.zoom.out.rate < this.zoom.out.max_rate){
                 this.zoom.zoom_out = true;
-                this.zoom.out.rate += this.zoom.out.acceleration
+                this.zoom.out.rate += this.zoom.out.acceleration*this.dt/16;
             }
             
         }
     }
 
+    
+
     zoom_out_keyup = (e)=>{
         if(e.key == '['){
             this.zoom.zoom_out = false;
             this.zoom.out.rate = 1;
-            console.log(this.zoom.zoom_out)
+        }
+    }
+
+    zoom_in_keydown = (e)=>{
+        
+        // work on zoom
+        // this.step.x.px -= .1;
+        // this.step.y.px -= .1;
+        if(e.key == ']'){
+            
+            this.zoom.zoom_out = false;
+            if(this.zoom.in.rate < this.zoom.in.max_rate){
+                this.zoom.zoom_in = true;
+                this.zoom.in.rate += this.zoom.out.acceleration*this.dt/16
+            }
+            
+        }
+    }
+
+    zoom_in_keyup = (e)=>{
+        if(e.key == ']'){
+            this.zoom.zoom_in = false;
+            this.zoom.in.rate = 1;
         }
     }
 
